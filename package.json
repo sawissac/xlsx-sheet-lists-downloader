@@ -13,7 +13,9 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "scripts": {
-    "split": "bun index.ts"
+    "split": "bun index.ts",
+    "next-intl-init": "bun src/next-intl/init.ts",
+    "next-intl": "bun src/next-intl/build.ts"
   },
   "bin": {
     "xlsx-split": "./index.ts"
