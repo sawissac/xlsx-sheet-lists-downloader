@@ -11,6 +11,12 @@ export type NextIntlConfig = {
   };
   /** Columns to export. Each becomes `<as>.json`. */
   language: LanguageColumn[];
+  /**
+   * `as` of the language used as fallback. When a row has no value for a
+   * language, the default language's value for that row is written instead.
+   * Omit (or leave empty) to write an empty string.
+   */
+  defaultLanguage?: string;
 };
 
 export type LanguageColumn = {

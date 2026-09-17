@@ -87,6 +87,8 @@ export default defineConfig({
   language: [
 ${languages.map((l) => `    { name: ${JSON.stringify(l)}, as: ${JSON.stringify(guessAs(l))} },`).join("\n")}
   ],
+  // Fallback language ("as" value). Empty cells reuse this language's value.
+  defaultLanguage: ${JSON.stringify(guessAs(languages[0]!))},
 });
 `;
 

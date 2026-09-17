@@ -1,9 +1,17 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
 import { basename, dirname, join, resolve } from "node:path";
-import { mkdir, readdir, stat } from "node:fs/promises";
-import * as XLSX from "xlsx";
-import { CONFIG_FILE, type NextIntlConfig } from "./config";
+import { mkdir } from "node:fs/promises";
+import {
+  CONFIG_FILE,
+  listCsvFiles,
+  loadConfig,
+  missingColumns,
+  readCsv,
+  readKey,
+  requireCsvFolder,
+  VALID_KEY,
+} from "./shared";
 
 const HELP = `
 Combine every .csv in a folder into next-intl message files.
@@ -35,46 +43,14 @@ if (values.help || positionals.length === 0) {
   process.exit(values.help ? 0 : 1);
 }
 
-const csvFolder = resolve(positionals[0]!);
-if (!(await stat(csvFolder).catch(() => null))?.isDirectory()) {
-  console.error(`Not a directory: ${csvFolder}`);
-  process.exit(1);
-}
-
-const configPath = resolve(values.config!);
-if (!(await Bun.file(configPath).exists())) {
-  console.error(`Config not found: ${configPath}\nRun "bun run next-intl-init" first.`);
-  process.exit(1);
-}
-const config = (await import(configPath)).default as NextIntlConfig;
-if (
-  !config?.key?.name ||
-  !Array.isArray(config.language) ||
-  config.language.length === 0 ||
-  config.language.some((l) => !l?.name || !l?.as)
-) {
-  console.error(`Invalid config in ${configPath}: need key.name and a non-empty language[] of { name, as }`);
-  process.exit(1);
-}
-const dupAs = config.language.map((l) => l.as).filter((a, i, arr) => arr.indexOf(a) !== i);
-if (dupAs.length) {
-  console.error(`Invalid config: duplicate "as" value(s) ${[...new Set(dupAs)].join(", ")}`);
-  process.exit(1);
-}
-
-const csvFiles = (await readdir(csvFolder)).filter((f) => f.toLowerCase().endsWith(".csv")).sort();
-if (csvFiles.length === 0) {
-  console.error(`No .csv files in ${csvFolder}`);
-  process.exit(1);
-}
+const csvFolder = await requireCsvFolder(positionals[0]!);
+const { config, defaultLanguage } = await loadConfig(values.config!);
+const csvFiles = await listCsvFiles(csvFolder);
 
 const messages: Record<string, Messages> = Object.fromEntries(config.language.map((l) => [l.as, {}]));
 const seen = new Map<string, string>(); // key -> file it came from
 let rows = 0;
 let skipped = 0;
-
-// Sheets often contain section-title rows ("Header, Draft State") or "—" placeholders in the key column.
-const VALID_KEY = /^[\w-]+(\.[\w-]+)*$/;
 
 // Set nested value for a dotted key ("a.b.c" -> {a:{b:{c:v}}}), which is what next-intl expects.
 function setNested(obj: Messages, key: string, value: string, file: string): boolean {
@@ -99,23 +75,17 @@ function setNested(obj: Messages, key: string, value: string, file: string): boo
 }
 
 for (const file of csvFiles) {
-  const wb = XLSX.read(await Bun.file(join(csvFolder, file)).text(), { type: "string" });
-  const sheet = wb.Sheets[wb.SheetNames[0]!]!;
-  // Trim header cells: sheets often have stray spaces ("Lang Value ").
-  const rawRecords = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "", raw: false });
-  const records = rawRecords.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k.trim(), v])));
-  const header = Object.keys(records[0] ?? {});
+  const { records, header } = await readCsv(csvFolder, file);
 
-  const missingCols = [config.key.name, ...config.language.map((l) => l.name)].filter((c) => !header.includes(c));
+  const missingCols = missingColumns(config, header);
   if (missingCols.length) {
     console.warn(`⚠ ${file}: missing column(s) ${missingCols.map((c) => `"${c}"`).join(", ")} — skipped`);
     continue;
   }
 
   for (const rec of records) {
-    let key = String(rec[config.key.name] ?? "").trim();
+    const key = readKey(config, rec);
     if (!key) continue;
-    if (config.key.targetText) key = key.replaceAll(config.key.targetText, config.key.replaceText);
     if (!VALID_KEY.test(key)) {
       skipped++;
       continue;
@@ -125,8 +95,10 @@ for (const file of csvFiles) {
     if (prev) console.warn(`⚠ ${file}: duplicate key "${key}" (first seen in ${prev}) — overwriting`);
     seen.set(key, file);
 
+    const fallback = defaultLanguage ? String(rec[defaultLanguage.name] ?? "").trim() : "";
     for (const lang of config.language) {
-      setNested(messages[lang.as]!, key, String(rec[lang.name] ?? ""), file);
+      const value = String(rec[lang.name] ?? "");
+      setNested(messages[lang.as]!, key, value.trim() ? value : fallback, file);
     }
     rows++;
   }

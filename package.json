@@ -15,7 +15,8 @@
   "scripts": {
     "split": "bun index.ts",
     "next-intl-init": "bun src/next-intl/init.ts",
-    "next-intl": "bun src/next-intl/build.ts"
+    "next-intl": "bun src/next-intl/build.ts",
+    "next-intl-check": "bun src/next-intl/check.ts"
   },
   "bin": {
     "xlsx-split": "./index.ts"
