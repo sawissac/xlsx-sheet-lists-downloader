@@ -88,6 +88,19 @@ Dotted keys are nested (`a.b.c` → `{ "a": { "b": { "c": … } } }`) as next-in
 expects. Rows whose key is not a dotted identifier (section titles, `—`) are
 skipped; duplicate keys and CSVs missing a configured column are warned about.
 
+| Option                  | Description                                                             |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `-o, --out <dir>`     | Parent output directory (default: parent of the CSV folder)             |
+| `-c, --config <file>` | Config file (default:`./next-intl.config.ts`)                         |
+| `--no-nested`         | Keep dotted keys flat:`{ "auth.password_forget": "Password Forget" }` |
+| `--no-combined-file`  | One file per CSV per language instead of one merged file per language   |
+| `-h, --help`          | Show help                                                               |
+
+With `--no-combined-file`, `file1.csv` and `file2.csv` become
+`<as>/file1.json` and `<as>/file2.json` (e.g. `en/file1.json`, `en/file2.json`)
+instead of a single `<as>.json`. Duplicate keys are then only reported within
+the same CSV, since they no longer overwrite each other across files.
+
 ### 3. Check for duplicates and missing translations
 
 ```bash
@@ -124,13 +137,13 @@ duplicate key and every empty language cell:
 4 cell(s) fall back to default, 2 cell(s) empty (1 duplicate key(s), 1 non-key row(s) skipped)
 ```
 
-| Option                 | Description                                            |
-| ---------------------- | ------------------------------------------------------ |
-| `-c, --config <file>` | Config file (default:`./next-intl.config.ts`)          |
-| `-n, --limit <n>`     | Max keys listed per section (default:`20`, `0` = all)  |
-| `-S, --summary`       | Counts only, do not list keys                           |
-| `-s, --strict`        | Also fail on `default`-filled cells                     |
-| `-h, --help`          | Show help                                               |
+| Option                  | Description                                               |
+| ----------------------- | --------------------------------------------------------- |
+| `-c, --config <file>` | Config file (default:`./next-intl.config.ts`)           |
+| `-n, --limit <n>`     | Max keys listed per section (default:`20`, `0` = all) |
+| `-S, --summary`       | Counts only, do not list keys                             |
+| `-s, --strict`        | Also fail on`default`-filled cells                      |
+| `-h, --help`          | Show help                                                 |
 
 Empty cells are listed before `default`-filled ones, so the rows that need a
 translator come first. Exits `1` when any cell would be written empty (with
