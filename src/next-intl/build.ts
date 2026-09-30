@@ -25,8 +25,9 @@ Options:
   -c, --config <file>   Config file (default: ./${CONFIG_FILE})
   --no-nested           Keep dotted keys flat: { "auth.password_forget": "…" }
                         instead of { "auth": { "password_forget": "…" } }
-  --no-combined-file    One file per CSV per language: <column>/<csv-name>.json
-                        instead of merging every CSV into <column>.json
+  --no-combined-file    One file per CSV per language: <column>/<csv_name>.json
+                        (lowercased, spaces -> "_") instead of merging every
+                        CSV into <column>.json
   -h, --help            Show this help
 `.trim();
 
@@ -67,10 +68,14 @@ const newBundle = (): Bundle => ({
   messages: Object.fromEntries(config.language.map((l) => [l.as, {}])),
   seen: new Map(),
 });
-const bundles = new Map<string, Bundle>(); // CSV name without extension ("" when combined) -> bundle
+const bundles = new Map<string, Bundle>(); // output file stem ("" when combined) -> bundle
 if (combined) bundles.set("", newBundle());
 let rows = 0;
 let skipped = 0;
+
+const safe = (name: string) => name.replace(/[\\/:*?"<>|]/g, "_").trim();
+// "Auth Screen.csv" -> "auth_screen". CSVs that map to the same stem share one bundle.
+const fileStem = (file: string) => safe(file.replace(/\.csv$/i, "")).toLowerCase().replace(/\s+/g, "_");
 
 // Set nested value for a dotted key ("a.b.c" -> {a:{b:{c:v}}}), which is what next-intl expects.
 function setNested(obj: Messages, key: string, value: string, file: string): boolean {
@@ -103,7 +108,7 @@ for (const file of csvFiles) {
     continue;
   }
 
-  const bundleName = combined ? "" : file.replace(/\.csv$/i, "");
+  const bundleName = combined ? "" : fileStem(file);
   let bundle = bundles.get(bundleName);
   if (!bundle) bundles.set(bundleName, (bundle = newBundle()));
 
@@ -134,12 +139,11 @@ for (const file of csvFiles) {
 const outParent = values.out ? resolve(values.out) : dirname(csvFolder);
 const outDir = join(outParent, `${basename(csvFolder)}_nextintl`);
 
-const safe = (name: string) => name.replace(/[\\/:*?"<>|]/g, "_").trim();
 for (const [name, bundle] of bundles) {
   for (const lang of config.language) {
     const target = combined
       ? join(outDir, `${safe(lang.as)}.json`)
-      : join(outDir, safe(lang.as), `${safe(name)}.json`);
+      : join(outDir, safe(lang.as), `${name}.json`);
     await mkdir(dirname(target), { recursive: true });
     await Bun.write(target, JSON.stringify(bundle.messages[lang.as], null, 2) + "\n");
     console.log(`✓ ${lang.name} -> ${target}`);

@@ -96,9 +96,10 @@ skipped; duplicate keys and CSVs missing a configured column are warned about.
 | `--no-combined-file`  | One file per CSV per language instead of one merged file per language   |
 | `-h, --help`          | Show help                                                               |
 
-With `--no-combined-file`, `file1.csv` and `file2.csv` become
-`<as>/file1.json` and `<as>/file2.json` (e.g. `en/file1.json`, `en/file2.json`)
-instead of a single `<as>.json`. Duplicate keys are then only reported within
+With `--no-combined-file`, `file1.csv` and `Auth Screen.csv` become
+`<as>/file1.json` and `<as>/auth_screen.json` (e.g. `en/file1.json`,
+`en/auth_screen.json`) instead of a single `<as>.json`. File names are
+lowercased and spaces become `_`. Duplicate keys are then only reported within
 the same CSV, since they no longer overwrite each other across files.
 
 ### 3. Check for duplicates and missing translations
